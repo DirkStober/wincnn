@@ -2,6 +2,8 @@ from __future__ import print_function
 from sympy import symbols, Matrix, Poly, zeros, eye, Indexed, simplify, IndexedBase, init_printing, pprint
 from operator import mul
 from functools import reduce
+from pathlib import Path
+
 
 def At(a,m,n):
     return Matrix(m, n, lambda i,j: a[i]**j)
@@ -154,3 +156,55 @@ def showCookToomConvolution(a,n,r,fractionsIn=FractionsInG):
         print ("fractions = ")
         pprint(f)
         print ("")
+
+def cRow(m):
+    n = len(m)
+    s = "\t(const float [%d]){"%(n)
+    for i in range(len(m)):
+        v = m[i]
+        row_string = str(v) + ".f"
+        if(i != (len(m) - 1)):
+            row_string +=","
+        s += "{:>10}".format(row_string)
+    s += "},\n"
+    return s
+
+def cMatrix(m,name):
+    s = "static const float * %s[]={\n"%(name)
+    for i in range(m.shape[0]):
+        s+= cRow(m[i,:])
+    s+= "};\n\n"
+    return s
+
+def generateDefinition(a,n,r):
+    AT,G,BT,f = cookToomFilter(a,n,r,0)
+    dim = "%d_%d"%(n,r)
+    s = "/* Winograd Transformation Matrices for F(%d,%d) */\n" %(n,r)
+    s += cMatrix(AT,"At" + dim)
+    s += cMatrix(G,"G" + dim)
+    s += cMatrix(BT,"Bt" + dim)
+    s += "WINOGRAD_STRUCT Wino_F%s={G%s,Bt%s,At%s,%d,%d,%d,%d};\n\n"%(
+            dim,dim,dim,dim,r + n - 1,n,r,n)
+    return s
+
+
+def generateCHeader(l,outfile):
+    fname = Path(outfile).stem.upper()
+    s = "#ifndef %s_H\n#define %s_H 0\n\n"%(fname,fname)
+    # Define the Structure
+    s += ("typedef const struct WSTRUCT{ \n"
+        "\tconst float ** G;\n"   
+        "\tconst float ** Bt;\n" 
+        "\tconst float ** At;\n" 
+        "\tconst int tile_size;\n"
+        "\tconst int tile_stride;\n"
+        "\tconst int kernel_size;\n"
+        "\tconst int out_size;\n"
+        "}WINOGRAD_STRUCT;\n\n\n")
+    for e in l:
+        s += generateDefinition(e[0],e[1],e[2])
+    s += "\n\n#endif"
+    f = open(outfile,"w")
+    f.write(s)
+    f.close()
+
