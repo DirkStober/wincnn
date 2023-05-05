@@ -1,5 +1,6 @@
-# wincnn
+# Fork of wincnn
 
+Added function to generate C-Header.
 A simple python module for computing minimal Winograd convolution algorithms for use with
 convolutional neural networks as proposed in [1].
 
